@@ -2,7 +2,8 @@
 
 """
 create backups using the dar (http://dar.linux.free.fr/)
-command line utility via ssh
+command line utility via ssh. You'll need a recent version of
+dar both on the source and destination systems.
 """
 
 import sys
@@ -23,22 +24,25 @@ def system(cmd):
     
     err=os.system(cmd)
     return err
-    
+
+def _path_list(path):
+    if not path:
+        path = []
+    elif isinstance(path, str):
+        path = [x.strip().lstrip("/") for x in path.split()]
+    return path
+
 class ssh_backup(object):
     def __init__(self,
                  source,
                  name=None,
                  prune=None,
+                 go_into=None,
                  dstdir=None,
                  backupdir=os.path.expanduser("~/backup")):
 
-
-        if not prune:
-            prune = []
-        elif isinstance(prune, str):
-            prune = [x.strip().lstrip("/") for x in prune.split()]
-            
-        self.prune = prune
+        self.prune = _path_list(prune)
+        self.go_into = _path_list(go_into)
         
         if name is None:
             name = source.replace("/", ":")
@@ -89,7 +93,7 @@ class ssh_backup(object):
         archive = os.path.join(tmpdir, "archive.1.dar")
 
         cmd += ' %s ' % (" ".join(['-P%s' % x for x in self.prune]),)
-        
+        cmd += ' %s ' % (" ".join(['-g%s' % x for x in self.go_into]),)
         
         cmd += ' >%s ' % (archive,)
         system(cmd)
