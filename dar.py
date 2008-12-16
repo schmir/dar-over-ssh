@@ -49,7 +49,9 @@ class ssh_backup(object):
         self.name = name
             
         host, source = source.split(":", 1)
-        
+        if not source:
+            source = '.'
+            
         self.source = source
         self.host = host
 
@@ -73,7 +75,7 @@ class ssh_backup(object):
             sys.stdout.write("no full backups found. will create one.\n")
                
         cmd = 'ssh %s dar -z -Q -c - -R %s' % (self.host, self.source)
-        cmd += r" -Z '\*.i' -Z '\*.gz' -Z '\*.tgz' -Z '\*.bz2' -Z '\*.zip' -Z '\*.pack' -Z '\*.i' -Z 'pack\*.pack' -Z '\*.7z' -Z '\*.rz'"
+        cmd += r" -Z '\*.i' -Z '\*.gz' -Z '\*.tgz' -Z '\*.bz2' -Z '\*.zip' -Z '\*.pack' -Z '\*.7z' -Z '\*.rz'"
 
         tmpdir = os.path.join(self.dstdir, 'tmp')
         if os.path.exists(tmpdir):
@@ -103,7 +105,7 @@ class ssh_backup(object):
             system(cmd)
             
         catalog = os.path.join(tmpdir, "catalog")
-        err=system("dar -C %s -A %s" % (catalog, os.path.join(tmpdir, "archive")))
+        err=system("dar -Q -C %s -A %s" % (catalog, os.path.join(tmpdir, "archive")))
         assert err==0, "could not create catalog"
         
         if reference:
@@ -115,3 +117,5 @@ class ssh_backup(object):
         
         os.rename(tmpdir, fn)
         sys.stdout.write("created backup in %s\n" % fn)
+
+
