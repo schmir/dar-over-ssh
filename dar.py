@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# Time-stamp: <2009-01-22 10:55:01 ralf>
 
 """
 create backups using the dar (http://dar.linux.free.fr/)
@@ -61,19 +62,54 @@ class ssh_backup(object):
         self.dstdir = os.path.join(backupdir, dstdir)
         self.date = get_datestring()
         self.uid = binascii.hexlify(open("/dev/random").read(6))
+
+
+    def glob(self, pattern):
+        return glob.glob(os.path.join(self.dstdir, pattern))
+
+    def filesize(self, name):
+        return os.stat(name).st_size
         
+    def should_make_full(self, full):
+        partial_backups = [x for x in self.glob("*-partial/archive.1.dar") if x>full]
+        partial_backups.sort()
+
+        if not partial_backups:
+            print "no partial backups"
+            return False
+        
+        size = self.filesize(full)
+        all_sizes = [self.filesize(x) for x in partial_backups]
+        last_size = all_sizes[-1]
+        
+
+        percent = 100.0*last_size / size
+        all_percent = 100.0*sum(all_sizes) / size
+        
+        print "have %d partial backups" % len(partial_backups)
+        print "together they use %.1f%% of the size of the last full backup" % (all_percent,)
+        print "the last one uses %.1f%% of the size of the last full backup" % (percent,)
+        
+        if percent>10.0 or len(partial_backups)>90 or all_percent>100.0: # fixme: what are the best values here???
+            print "forcing full backup"
+            return True
+
+        return False
+    
     def run(self):
 
         reference = None
 
-        full_backups = glob.glob(os.path.join(self.dstdir, "*-full/archive.1.dar"))
+        full_backups = self.glob("*-full/archive.1.dar")
         full_backups.sort()
         if full_backups:
             reference = full_backups[-1]
-            sys.stdout.write("using reference %s\n"  % reference)
+            sys.stdout.write("last full backup found in %s\n"  % reference)
+            if self.should_make_full(reference):
+                reference = None
         else:
             sys.stdout.write("no full backups found. will create one.\n")
-               
+            
         cmd = 'ssh %s dar -z -Q -c - -R %s' % (self.host, self.source)
         cmd += r" -Z '\*.i' -Z '\*.gz' -Z '\*.tgz' -Z '\*.bz2' -Z '\*.zip' -Z '\*.pack' -Z '\*.7z' -Z '\*.rz'"
 
@@ -117,5 +153,3 @@ class ssh_backup(object):
         
         os.rename(tmpdir, fn)
         sys.stdout.write("created backup in %s\n" % fn)
-
-
