@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Last-changed: 2009-12-28 14:46:44 by ralf
+# Last-changed: 2009-12-28 15:25:05 by ralf
 
 """
 create backups using the dar (http://dar.linux.free.fr/)
@@ -209,7 +209,7 @@ def rotate(path, lifetime=None):
 
     keepentry(full[-1][0]) # keep the latest full backup
 
-    keepentry(full[0][0]) # keep the oldest full backup  XXX does that make sense ???
+    # keepentry(full[0][0]) # keep the oldest full backup  XXX does that make sense ???
 
 
     for e in entries:
