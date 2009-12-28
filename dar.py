@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Last-changed: 2009-12-28 15:25:05 by ralf
+# Last-changed: 2009-12-28 17:30:04 by ralf
 
 """
 create backups using the dar (http://dar.linux.free.fr/)
@@ -204,8 +204,13 @@ def rotate(path, lifetime=None):
     keep = set()
 
     def keepentry(e):
+        f = partial2full[e]
+        if f not in keep:
+            keep.add(f)
+            return f
+
         keep.add(e)
-        keep.add(partial2full[e])
+        return e
 
     keepentry(full[-1][0]) # keep the latest full backup
 
@@ -242,7 +247,7 @@ def rotate(path, lifetime=None):
         dist, entry = find_min()
         lt = get_lifetime(age[entry])
         if dist>=lt:
-            keepentry(entry)
+            entry = keepentry(entry)
 
         todo.remove(entry)
 
@@ -263,8 +268,6 @@ def rotate(path, lifetime=None):
                     print "D   ", age[x], x
 
     report()
-
-
 
     # delete partial backups before full backups!!
     for e in entries:
