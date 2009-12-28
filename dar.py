@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Time-stamp: <2009-01-22 10:55:01 ralf>
+# Last-changed: 2009-12-28 14:46:44 by ralf
 
 """
 create backups using the dar (http://dar.linux.free.fr/)
@@ -96,7 +96,10 @@ class ssh_backup(object):
 
         return False
     
-    def run(self):
+    def run(self, lifetime=None):
+        if lifetime is not None:
+            rotate(self.dstdir, lifetime=lifetime)
+
 
         reference = None
 
@@ -153,3 +156,124 @@ class ssh_backup(object):
         
         os.rename(tmpdir, fn)
         sys.stdout.write("created backup in %s\n" % fn)
+
+def filename2datetime(fn):
+    fn = os.path.basename(fn)
+    return datetime.datetime(int(fn[:4]), int(fn[4:6]), int(fn[6:8]), int(fn[8:10]), int(fn[10:12]))
+        
+def find_archives(path):
+    entries = [os.path.join(path, x) for x in os.listdir(path) if x.endswith("-partial") or x.endswith("-full")]
+    entries.sort()
+    
+    lst = []
+
+    for x in entries:
+        if x.endswith("-full"):
+            lst.append([x])
+        else:
+            if lst:
+                lst[-1].append(x)
+                
+
+    return entries, lst
+
+default_lifetime = ((7,2), (30,7), (60,14), (180,60), (360, 120))
+
+def rotate(path, lifetime=None):
+    if lifetime is None:
+        lifetime = default_lifetime
+    
+    lifetime = list(lifetime)
+    lifetime.sort(reverse=True)
+    lifetime.append((-1,0))
+
+    entries, full = find_archives(path)
+    if not full:
+        return
+
+    partial2full = {}
+    for lst in full:
+        for x in lst:
+            partial2full[x] = lst[0]
+
+    now = datetime.datetime.now()
+    
+    age = {}
+    date = {}
+
+    keep = set()
+
+    def keepentry(e):
+        keep.add(e)
+        keep.add(partial2full[e])
+
+    keepentry(full[-1][0]) # keep the latest full backup
+
+    keepentry(full[0][0]) # keep the oldest full backup  XXX does that make sense ???
+
+
+    for e in entries:
+        dt = filename2datetime(e)
+        date[e] = dt
+        age[e] = (now-dt).days
+
+
+    def find_min(): 
+        """search entry with minimal distance to any entry in keep"""
+        
+        minimal = (sys.maxint, None)
+        for t in todo:
+            for k in keep:
+                m = (abs((date[t]-date[k]).days), t)
+                if m<minimal:
+                    minimal = m
+        return minimal
+
+    def get_lifetime(age):
+        for a, l in lifetime:
+            if age>a:
+                return l
+        assert 0, "guard missing???"
+
+            
+
+    todo = set(entries)-keep
+    while todo:
+        dist, entry = find_min()
+        lt = get_lifetime(age[entry])
+        if dist>=lt:
+            keepentry(entry)
+
+        todo.remove(entry)
+
+
+    # finished with marking entries as keep
+
+    def report():
+        for lst in full:
+            if lst[0] in keep:
+                print " ", age[lst[0]], lst[0]
+            else:
+                print "D", age[lst[0]], lst[0]
+
+            for x in lst[1:]:
+                if x in keep:
+                    print "    ", age[x], x
+                else:
+                    print "D   ", age[x], x
+
+    report()
+
+
+
+    # delete partial backups before full backups!!
+    for e in entries:
+        if e.endswith("-partial") and e not in keep:
+            # print "rm", e
+            shutil.rmtree(e)
+
+    for e in entries:
+        if e.endswith("-full") and e not in keep:
+            shutil.rmtree(e)
+            # print "rm-full", e
+
