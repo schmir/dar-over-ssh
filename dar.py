@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Last-changed: 2009-12-28 17:30:04 by ralf
+# Last-changed: 2010-02-03 16:26:01 by ralf
 
 """
 create backups using the dar (http://dar.linux.free.fr/)
@@ -40,8 +40,9 @@ class ssh_backup(object):
                  prune=None,
                  go_into=None,
                  dstdir=None,
-                 backupdir=os.path.expanduser("~/backup")):
-
+                 backupdir=os.path.expanduser("~/backup"),
+                 onefs=False):
+        self.onefs = onefs
         self.prune = _path_list(prune)
         self.go_into = _path_list(go_into)
         
@@ -115,7 +116,9 @@ class ssh_backup(object):
             
         cmd = 'ssh %s dar -z -Q -c - -R %s' % (self.host, self.source)
         cmd += r" -Z '\*.i' -Z '\*.gz' -Z '\*.tgz' -Z '\*.bz2' -Z '\*.zip' -Z '\*.pack' -Z '\*.7z' -Z '\*.rz'"
-
+        if self.onefs:
+            cmd += " -M "
+        
         tmpdir = os.path.join(self.dstdir, 'tmp')
         if os.path.exists(tmpdir):
             shutil.rmtree(tmpdir)
